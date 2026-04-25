@@ -217,9 +217,5 @@ export default {
     height: 40px;
 }
 
-/* 可选：表头单独加大 */
-///deep/ .table-header {
-//    font-size: 17px;
-//    font-weight: 500;
-//}
+
 </style>
