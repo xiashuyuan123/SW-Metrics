@@ -24,22 +24,22 @@
             <el-button style='margin-top: 10px' class="submit" type="primary" @click="uploadFile">上传文件</el-button>
         </el-card>
 
-        <el-card class="box-card" style='width: 100%;display: flex'>
-            <el-upload
-                class="upload-demo"
-                :auto-upload="false"
-                action="https://jsonplaceholder.typicode.com/posts/"
-                :limit="1"
-                :file-list="fileListTXT"
-                :on-change="onChangeTXT"
-                :on-exceed="onExceedTXT">
-                <div style='display: flex'>
-                    <i class="el-icon-document-checked" style='font-size: 20px;margin-top: 10px;margin-left: 20px;margin-right: 10px'></i>
-                    <div>点击选择要上传源代码（txt 文件）</div>
-                </div>
-            </el-upload>
-<!--            <el-button style='margin-top: 10px' class="submit" type="primary" @click="uploadFile">上传文件</el-button>-->
-        </el-card>
+<!--        <el-card class="box-card" style='width: 100%;display: flex'>-->
+<!--            <el-upload-->
+<!--                class="upload-demo"-->
+<!--                :auto-upload="false"-->
+<!--                action="https://jsonplaceholder.typicode.com/posts/"-->
+<!--                :limit="1"-->
+<!--                :file-list="fileListTXT"-->
+<!--                :on-change="onChangeTXT"-->
+<!--                :on-exceed="onExceedTXT">-->
+<!--                <div style='display: flex'>-->
+<!--                    <i class="el-icon-document-checked" style='font-size: 20px;margin-top: 10px;margin-left: 20px;margin-right: 10px'></i>-->
+<!--                    <div>点击选择要上传源代码（txt 文件）</div>-->
+<!--                </div>-->
+<!--            </el-upload>-->
+<!--            &lt;!&ndash;            <el-button style='margin-top: 10px' class="submit" type="primary" @click="uploadFile">上传文件</el-button>&ndash;&gt;-->
+<!--        </el-card>-->
 
 
         <el-card  v-if="!CKresList.length" class="box-card"style='width: 100%' >
@@ -103,6 +103,23 @@
                 <el-table-column
                     prop="si"
                     label="SI">
+                </el-table-column>
+                <!--                新增：重载相关列-->
+                <el-table-column
+                    prop="nol"
+                    label="NOL(重载对数)">
+                </el-table-column>
+                <el-table-column
+                    prop="nog"
+                    label="NOG(重载组数)">
+                </el-table-column>
+                <el-table-column
+                    prop="maxOverloadCount"
+                    label="最大重载数">
+                </el-table-column>
+                <el-table-column
+                    prop="overloadingFactor"
+                    label="重载因子">
                 </el-table-column>
             </el-table>
         </el-card>
@@ -195,6 +212,7 @@ export default {
             activeNames: ['1'],
             activeName: 'first',
             CKresList: [],
+            polymorphismList:[],
             LKresList: [],
             CKAndLKList: [],
             classList: [],
@@ -309,6 +327,12 @@ export default {
         //     myChart.setOption(option)
         // },
         drawRadarChart(){
+            //新增：先销毁旧例
+            let existingChart=echarts.getInstanceByDom(this.$refs.mainChart);
+            if(existingChart){
+                existingChart.dispose();
+            }
+            //声明myChart，用来创造新实例
             const myChart = echarts.init(this.$refs.mainChart);
             let legendData = this.CKresList.map(item => {
                 return item.name
@@ -332,7 +356,8 @@ export default {
                     value: seriesDataCK[i].value.concat(seriesDataLK[i].value)
                 })
             }
-
+            //新增：清空表格
+            this.CKAndLKList=[];
             for (let i = 0; i < legendData.length; i++) {
                 // 填充 CKAndLKList
                 this.CKAndLKList.push({
@@ -343,9 +368,18 @@ export default {
                     cbo: seriesDataCK[i].value[4],
                     lcom: seriesDataCK[i].value[5],
                     cs: seriesDataLK[i].value[0],
-                    noo: seriesDataLK[i].value[1],
+                    //NOO优先从多态性接口获取
+                    // noo: seriesDataLK[i].value[1],
+                    noo: this.polymorphismList[i] && this.polymorphismList[i].noo !== undefined ? this.polymorphismList[i].noo : seriesDataLK[i].value[1],
+
                     noa: seriesDataLK[i].value[2],
                     si: seriesDataLK[i].value[3],
+                    //新增重载数据
+                    nol: this.polymorphismList[i] && this.polymorphismList[i].nol ? this.polymorphismList[i].nol : 0,
+                    nog: this.polymorphismList[i] && this.polymorphismList[i].nog ? this.polymorphismList[i].nog : 0,
+                    maxOverloadCount: this.polymorphismList[i] && this.polymorphismList[i].maxOverloadCount ? this.polymorphismList[i].maxOverloadCount : 0,
+                    overloadingFactor: this.polymorphismList[i] && this.polymorphismList[i].overloadingFactor ? this.polymorphismList[i].overloadingFactor : 0,
+
                     name: legendData[i]
                 });
             }
@@ -404,6 +438,12 @@ export default {
                 data: formData
             });
             console.log('上传文件',res);
+            //新增:清空所有旧数据
+            this.CKresList=[];
+            this.LKresList=[];
+            this.polymorphismList=[];
+            this.CKresList=[];
+
             // 请求后台处理结果
             // 1.请求CK度量结果
             let CKData = await this.axios({
@@ -418,6 +458,13 @@ export default {
             })
             this.LKresList = LKData.data.data;
             console.log('LK',this.LKresList);
+            //新增：3.请求多态性接口
+            let polymorphismData=await this.axios({
+                url:'http://localhost:8080/xml/getPolymorphism',
+                method: 'get',
+            })
+            this.polymorphismList = polymorphismData.data.data;
+            console.log('polymorphismList',this.polymorphismList);
             // 3.请求类详情信息
             // let {data} = await this.axios({
             //                 url: 'http://localhost:8080/xml/getBasicInfo',
@@ -474,7 +521,7 @@ export default {
     margin-top: 20px;
 }
 
-/deep/ .el-upload{
+:deep(.el-upload){
     width: 320px;
     height: 40px;
     line-height: 40px;
